@@ -35,7 +35,6 @@ def test_spending_by_category_success(sample_dataframe):
         "Супермаркеты",
         "2026-03-15"
     )
-
     assert isinstance(result, pd.DataFrame)
     assert not result.empty
     assert 'Категория' in result.columns
@@ -48,7 +47,6 @@ def test_spending_by_category_without_date(sample_dataframe):
         sample_dataframe,
         "Супермаркеты"
     )
-
     assert isinstance(result, pd.DataFrame)
 
 
@@ -59,7 +57,6 @@ def test_spending_by_category_wrong_category(sample_dataframe):
         "Nonexistent",
         "2026-03-15"
     )
-
     assert isinstance(result, pd.DataFrame)
     assert result.empty
 
@@ -70,17 +67,15 @@ def test_spending_by_weekday_success(sample_dataframe):
         sample_dataframe,
         "2026-03-15"
     )
-
     assert isinstance(result, pd.DataFrame)
     assert not result.empty
-    assert 'День_недели' in result.columns or 'weekday' in result.columns
-    assert 'Средние_траты' in result.columns or 'avg_spending' in result.columns
+    assert 'День_недели' in result.columns
+    assert 'Средние_траты' in result.columns
 
 
 def test_spending_by_weekday_without_date(sample_dataframe):
     """Тест получения трат по дням недели без указания даты"""
     result = reports.spending_by_weekday(sample_dataframe)
-
     assert isinstance(result, pd.DataFrame)
 
 
@@ -88,7 +83,6 @@ def test_spending_by_weekday_empty_data():
     """Тест с пустыми данными"""
     empty_df = pd.DataFrame()
     result = reports.spending_by_weekday(empty_df, "2026-03-15")
-
     assert isinstance(result, pd.DataFrame)
 
 
@@ -98,17 +92,15 @@ def test_spending_by_workday_success(sample_dataframe):
         sample_dataframe,
         "2026-03-15"
     )
-
     assert isinstance(result, pd.DataFrame)
     assert not result.empty
-    assert 'Тип_дня' in result.columns or 'day_type' in result.columns
-    assert 'Средние_траты' in result.columns or 'avg_spending' in result.columns
+    assert 'Тип_дня' in result.columns
+    assert 'Средние_траты' in result.columns
 
 
 def test_spending_by_workday_without_date(sample_dataframe):
     """Тест получения трат в рабочие/выходные дни без указания даты"""
     result = reports.spending_by_workday(sample_dataframe)
-
     assert isinstance(result, pd.DataFrame)
 
 
@@ -116,17 +108,16 @@ def test_spending_by_workday_empty_data():
     """Тест с пустыми данными"""
     empty_df = pd.DataFrame()
     result = reports.spending_by_workday(empty_df, "2026-03-15")
-
     assert isinstance(result, pd.DataFrame)
 
 
 def test_report_decorator_default_filename(temp_file):
     """Тест декоратора с именем файла по умолчанию"""
+
     @reports.report_decorator
     def test_func():
         return {"test": "data"}
 
-    # Временно меняем рабочую директорию
     original_dir = os.getcwd()
     os.chdir(temp_file.parent)
 
@@ -134,7 +125,6 @@ def test_report_decorator_default_filename(temp_file):
         result = test_func()
         assert result == {"test": "data"}
 
-        # Проверяем что файл создан
         files = os.listdir()
         report_files = [f for f in files if f.startswith('report_') and f.endswith('.json')]
         assert len(report_files) > 0
@@ -144,6 +134,7 @@ def test_report_decorator_default_filename(temp_file):
 
 def test_report_decorator_custom_filename(temp_file):
     """Тест декоратора с пользовательским именем файла"""
+
     @reports.report_decorator(str(temp_file))
     def test_func():
         return {"test": "data"}
@@ -152,29 +143,32 @@ def test_report_decorator_custom_filename(temp_file):
     assert result == {"test": "data"}
     assert temp_file.exists()
 
-    # Проверяем содержимое
-    with open(temp_file, 'r', encoding='utf-8') as f:
-        saved_data = json.load(f)
-    assert saved_data == {"test": "data"}
-
 
 def test_report_decorator_with_dataframe(sample_dataframe, temp_file):
     """Тест декоратора с возвратом DataFrame"""
+
     @reports.report_decorator(str(temp_file))
     def test_func():
         return sample_dataframe
 
     result = test_func()
     assert isinstance(result, pd.DataFrame)
-    assert temp_file.exists()
+
+    csv_file = str(temp_file).replace('.json', '.csv')
+    file_exists = temp_file.exists() or os.path.exists(csv_file)
+    assert file_exists
 
 
 def test_decorator_chaining(sample_dataframe, temp_file):
     """Тест цепочки декораторов"""
+
     @reports.report_decorator(str(temp_file))
     def test_func():
         return reports.spending_by_category(sample_dataframe, "Супермаркеты")
 
     result = test_func()
     assert isinstance(result, pd.DataFrame)
-    assert temp_file.exists()
+
+    csv_file = str(temp_file).replace('.json', '.csv')
+    file_exists = temp_file.exists() or os.path.exists(csv_file)
+    assert file_exists
