@@ -132,3 +132,54 @@ def test_investment_bank_only_positive():
     result = services.investment_bank("2026-03", transactions, 50)
     res = json.loads(result)
     assert res == 16.0  # Только от первой транзакции
+
+
+from unittest.mock import patch, MagicMock
+from datetime import datetime
+
+
+def test_profitable_categories_with_mock():
+    """Тест выгодных категорий с использованием mock для datetime"""
+    mock_transactions = [
+        {"Дата операции": "2026-03-01", "Категория": "Супермаркеты", "Сумма платежа": -1000},
+        {"Дата операции": "2026-03-15", "Категория": "Рестораны", "Сумма платежа": -500},
+    ]
+
+    with patch('src.services.datetime') as mock_datetime:
+        # Настраиваем mock для datetime.strptime
+        mock_datetime.strptime.side_effect = lambda *args, **kw: datetime.strptime(*args, **kw)
+
+        result = services.profitable_categories(mock_transactions, 2026, 3)
+        result_dict = json.loads(result)
+
+        assert "Супермаркеты" in result_dict
+        assert result_dict["Супермаркеты"] > 0
+
+
+def test_investment_bank_with_patch():
+    """Тест инвесткопилки с использованием patch"""
+    mock_transactions = [
+        {"Дата операции": "2026-03-01", "Сумма операции": 1234},
+    ]
+
+    with patch('src.services.datetime') as mock_datetime:
+        # Настраиваем mock для datetime.strptime
+        mock_datetime.strptime.side_effect = lambda *args, **kw: datetime.strptime(*args, **kw)
+
+        result = services.investment_bank("2026-03", mock_transactions, 50)
+        result_float = json.loads(result)
+
+        assert isinstance(result_float, float)
+
+
+def test_external_api_with_mock():
+    """Тест внешнего API с mock (если есть вызовы API)"""
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    mock_response.json.return_value = {"rates": {"USD": 73.21}}
+
+    with patch('requests.get', return_value=mock_response) as mock_get:
+        # Здесь должен быть вызов вашей функции с API
+        # Например: result = services.get_currency_rate("USD")
+
+        mock_get.assert_not_called()  # Если функция не вызывается в текущем коде

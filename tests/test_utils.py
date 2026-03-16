@@ -5,6 +5,7 @@
 import pytest
 import pandas as pd
 import json
+from unittest.mock import patch, MagicMock, mock_open
 from src import utils
 
 
@@ -58,12 +59,10 @@ def sample_dataframe(sample_transactions_list):
 
 def test_load_transactions_success(tmp_path):
     """Тест успешной загрузки транзакций из Excel"""
-    # Создаем временный Excel файл
     df = pd.DataFrame({"test": [1, 2, 3]})
     file_path = tmp_path / "test.xlsx"
     df.to_excel(file_path, index=False)
 
-    # Тестируем загрузку
     result = utils.load_transactions(str(file_path))
     assert isinstance(result, pd.DataFrame)
     assert not result.empty
@@ -118,7 +117,6 @@ def test_load_user_settings_invalid_json(tmp_path):
 
 def test_filter_transactions_by_date(sample_dataframe):
     """Тест фильтрации по дате"""
-    # Преобразуем даты в datetime для теста
     sample_dataframe['Дата операции'] = pd.to_datetime(
         sample_dataframe['Дата операции'],
         format='%Y-%m-%d'
@@ -142,13 +140,11 @@ def test_get_cards_info(sample_dataframe):
     result = utils.get_cards_info(sample_dataframe)
     assert isinstance(result, list)
 
-    # Проверяем структуру данных
     for card in result:
         assert "last_digits" in card
         assert "total_spent" in card
         assert "cashback" in card
         assert isinstance(card["last_digits"], str)
-        # Исправляем: преобразуем numpy типы в Python float для проверки
         assert isinstance(float(card["total_spent"]), float)
         assert isinstance(float(card["cashback"]), float)
 
@@ -190,7 +186,6 @@ def test_search_transactions_no_results(sample_transactions_list):
 def test_find_phone_transactions(sample_transactions_list):
     """Тест поиска транзакций с телефонами"""
     result = utils.find_phone_transactions(sample_transactions_list)
-    # Проверяем что нашли хотя бы одну транзакцию с телефоном
     assert len(result) >= 1
     found = False
     for trans in result:
@@ -209,8 +204,7 @@ def test_find_phone_transactions_different_formats():
         {"Описание": "Обычный текст", "Категория": "Другое", "Сумма платежа": -400},
     ]
     result = utils.find_phone_transactions(transactions)
-    # В зависимости от реализации, может найти 2 или 3
-    assert len(result) >= 2  # Должны найти минимум первые два
+    assert len(result) >= 2
 
 
 def test_find_phone_transactions_no_phones():
@@ -245,7 +239,7 @@ def test_find_person_transfers_different_names():
         {"Категория": "Другое", "Описание": "Валерий А.", "Сумма платежа": -500},
     ]
     result = utils.find_person_transfers(transactions)
-    assert len(result) == 3  # Должны найти первые три
+    assert len(result) == 3
 
 
 def test_find_person_transfers_no_transfers():
@@ -256,3 +250,52 @@ def test_find_person_transfers_no_transfers():
     ]
     result = utils.find_person_transfers(transactions)
     assert len(result) == 0
+
+
+def test_load_transactions_with_mock():
+    """Тест загрузки транзакций с использованием mock"""
+    mock_df = MagicMock()
+    mock_df.empty = False
+    mock_df.__len__.return_value = 100
+
+    with patch('pandas.read_excel', return_value=mock_df) as mock_read:
+        result = utils.load_transactions("test.xlsx")
+
+        mock_read.assert_called_once_with("test.xlsx")
+        assert len(result) == 100
+
+
+def test_load_user_settings_with_patch():
+    """Тест загрузки настроек с использованием patch"""
+    mock_settings = {"user_currencies": ["USD", "EUR"], "user_stocks": ["AAPL"]}
+    mock_json = json.dumps(mock_settings)
+
+    with patch('builtins.open', mock_open(read_data=mock_json)):
+        with patch('json.load', return_value=mock_settings) as mock_json_load:
+            result = utils.load_user_settings("test.json")
+
+            mock_json_load.assert_called_once()
+            assert result["user_currencies"] == ["USD", "EUR"]
+
+
+def test_filter_transactions_with_mock():
+    """Тест фильтрации транзакций с mock DataFrame"""
+    # Импортируем pandas для создания реального DataFrame
+    import pandas as pd
+
+    # Создаём реальный DataFrame с правильным форматом дат
+    real_df = pd.DataFrame({
+        'Дата операции': ['01.01.2026', '15.01.2026', '01.02.2026'],
+        'Сумма платежа': [-100, -200, -300]
+    })
+
+    # Патчим to_datetime
+    with patch('pandas.to_datetime', wraps=pd.to_datetime) as mock_to_datetime:
+        result = utils.filter_transactions_by_date(real_df, "2026-01-01", "2026-01-31")
+
+        # Проверяем вызов
+        mock_to_datetime.assert_called()
+
+        # Проверяем результат
+        assert isinstance(result, pd.DataFrame)
+        assert len(result) == 2  # Только январские транзакции

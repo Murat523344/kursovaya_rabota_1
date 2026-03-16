@@ -1,19 +1,17 @@
+#!/usr/bin/env python3
 """
 Главный модуль для демонстрации всех функций приложения.
 """
 
 import json
 import logging
-from src.views import main_page, events_page
+
+from src.services import investment_bank  # profitable_categories удален
 from src.utils import load_transactions, load_user_settings
-from src.services import profitable_categories, investment_bank
-from src.reports import spending_by_category, spending_by_weekday, spending_by_workday
+from src.views import events_page, main_page
 
 # Настройка логирования
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 
@@ -43,7 +41,7 @@ def main() -> None:
         print(f"👋 Приветствие: {data_main['greeting']}")
         print(f"💳 Карт найдено: {len(data_main['cards'])}")
         print(f"💰 Топ-5 транзакций: {len(data_main['top_transactions'])}")
-        print(f"💵 Курсы валют: {data_main['currency_rates']}")
+        print(f"💵 Курсы валют: {data_main['currency_rates'][:2]}")
         print(f"📈 Цены акций: {data_main['stock_prices'][:2]}...")
     except Exception as e:
         print(f"❌ Ошибка: {e}")
@@ -66,26 +64,17 @@ def main() -> None:
     print("=" * 50)
     try:
         # Преобразуем DataFrame в список словарей для сервиса
-        transactions_list = transactions.to_dict('records') if hasattr(transactions, 'to_dict') else transactions
+        if hasattr(transactions, "to_dict"):
+            # Это DataFrame
+            transactions_list = transactions.to_dict("records")  # type: ignore
+        else:
+            # Это уже список
+            transactions_list = transactions  # type: ignore
+
         inv_result = investment_bank("2021-12", transactions_list, 50)
         print(f"💰 Накоплено за декабрь 2021: {inv_result} руб.")
     except Exception as e:
         print(f"❌ Ошибка: {e}")
-
-    # Демонстрация отчета по категории
-    print("\n" + "=" * 50)
-    print("📈 ОТЧЕТ: ТРАТЫ ПО КАТЕГОРИИ")
-    print("=" * 50)
-    try:
-        category_report = spending_by_category(transactions, "Супермаркеты", "2021-12-20")
-        print(f"📊 Траты на супермаркеты за 3 месяца:")
-        print(category_report)
-    except Exception as e:
-        print(f"❌ Ошибка: {e}")
-
-    print("\n" + "=" * 50)
-    print("✅ РАБОТА ПРОГРАММЫ ЗАВЕРШЕНА")
-    print("=" * 50)
 
 
 if __name__ == "__main__":

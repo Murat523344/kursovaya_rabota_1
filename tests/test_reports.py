@@ -172,3 +172,41 @@ def test_decorator_chaining(sample_dataframe, temp_file):
     csv_file = str(temp_file).replace('.json', '.csv')
     file_exists = temp_file.exists() or os.path.exists(csv_file)
     assert file_exists
+
+
+from unittest.mock import patch, MagicMock
+
+
+def test_spending_by_category_with_mock():
+    """Тест отчета по категориям с mock DataFrame"""
+    mock_df = MagicMock()
+    mock_df.empty = False
+    mock_df.__getitem__.return_value = mock_df
+    mock_df.__setitem__.return_value = None
+
+    mock_result = MagicMock()
+    mock_result.empty = False
+
+    with patch('pandas.to_datetime', return_value=MagicMock()):
+        with patch.object(mock_df, 'copy', return_value=mock_df):
+            with patch.object(mock_df, 'loc', return_value=mock_result):
+                result = reports.spending_by_category(mock_df, "Супермаркеты", "2026-03-15")
+
+                assert isinstance(result, pd.DataFrame) or hasattr(result, 'empty')
+
+
+def test_report_decorator_with_patch():
+    """Тест декоратора с patch для файловой системы"""
+    mock_result = {"test": "data"}
+
+    with patch('builtins.open', MagicMock()) as mock_open:
+        with patch('json.dump') as mock_json_dump:
+            @reports.report_decorator("test.json")
+            def test_func():
+                return mock_result
+
+            result = test_func()
+
+            mock_open.assert_called_once()
+            mock_json_dump.assert_called_once()
+            assert result == mock_result
